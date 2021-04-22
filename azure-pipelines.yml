@@ -1,0 +1,42 @@
+# Starter pipeline
+# Start with a minimal pipeline that you can customize to build and deploy your code.
+# Add steps that build, run tests, deploy, and more:
+# https://aka.ms/yaml
+
+trigger: none 
+
+schedules:
+  - cron: "0 0 03,18 1-12 *"
+    displayName: Every 03 and 18 of each month
+    branches:
+      include:
+        - main
+    always: true
+
+pool:
+  name: Linux - PG Hosted Managed pool (20.36.248.128)
+
+steps:
+- task: AzurePowerShell@5
+  displayName: 'KeyVault Rotation JPNEW C360'
+  inputs:
+    azureSubscription: 'SKII-Brain-DevOps-NonProd-Dev-01'
+    ScriptType: 'InlineScript'
+    Inline: |
+      $storageAccount = Get-AzStorageAccount -ResourceGroupName "AZ-RG-SK11Brain-Nonprod-Dev-01" -AccountName "sk2datahubdevadlsgen2"
+      $ctx1 = $storageAccount.Context
+      
+      $StartTime = Get-Date
+      $EndTime = $startTime.AddHours(648.0)
+      
+      $output= New-AzStorageContainerSASToken -Context $ctx1 `
+          -Name jpnow-c360 `
+          -Permission racw `
+          -ExpiryTime "$EndTime"
+      
+      
+      $secretvalues = ConvertTo-SecureString $output -AsPlainText -Force
+      Write-Host "$secretvalues"
+      $secretaddnew = Set-AzKeyVaultSecret -VaultName 'sk2-datahub-dev-kvi' -Name 'JPNOW-C360-SAS-TOKEN' -SecretValue $secretvalues
+      Write-Host "$secretaddnew"
+    azurePowerShellVersion: 'LatestVersion'
